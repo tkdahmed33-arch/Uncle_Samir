@@ -148,17 +148,6 @@ a{color:inherit;text-decoration:none}
   position:relative;z-index:2;display:grid;place-items:center;
   width:100%;min-height:auto;padding:0;
 }
-.login-page.login-simple .login-card-wrap::before,
-.login-page.login-simple .login-card-wrap::after{
-  content:"";position:absolute;width:68px;height:68px;
-  border:1.5px solid var(--gold-500);pointer-events:none;opacity:.55;z-index:0;
-}
-.login-page.login-simple .login-card-wrap::before{
-  top:-16px;right:-16px;border-bottom:0;border-left:0;border-radius:0 8px 0 0;
-}
-.login-page.login-simple .login-card-wrap::after{
-  bottom:-16px;left:-16px;border-top:0;border-right:0;border-radius:0 0 0 8px;
-}
 .login-page.login-simple .login-card{
   position:relative;width:min(480px,100%);
   padding:clamp(44px,5vw,62px) clamp(30px,4vw,52px) clamp(40px,4vw,56px);
@@ -656,8 +645,6 @@ input[type="file"].field::file-selector-button:hover{box-shadow:0 4px 12px -4px 
 }
 @media(max-width:720px){
   .login-page.login-simple{padding:16px 12px}
-  .login-page.login-simple .login-card-wrap::before,
-  .login-page.login-simple .login-card-wrap::after{display:none}
   .login-page.login-simple .login-card{
     padding:40px 24px 32px;border-radius:4px!important;
     box-shadow:
@@ -835,6 +822,108 @@ input[type="file"].field::file-selector-button:hover{box-shadow:0 4px 12px -4px 
 #request-image-preview{display:block;max-width:100%;max-height:68vh;object-fit:contain}
 #image-preview-modal .modal{width:min(1100px,94vw)}
 @media(max-width:720px){.eligibility-types{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE + VISUAL POLISH (CSS only — no logic changes)
+   ══════════════════════════════════════════════════════════════ */
+html,body{overflow-x:hidden;max-width:100%}
+img,svg,video,canvas{max-width:100%;height:auto}
+.page,.panel,.main-area,.detail-grid>*,.dashboard-grid>*,.settings-grid>*{min-width:0}
+h1,h2,h3{text-wrap:balance;overflow-wrap:anywhere}
+p,.row-sub,.section-note{overflow-wrap:anywhere}
+:root{font-size:clamp(14.5px,.35vw + 13.6px,16px)}
+:focus-visible{outline:2px solid var(--gold-500);outline-offset:2px}
+.field:focus-visible,.select-field:focus-visible,.textarea:focus-visible{outline:none}
+
+/* Login: fluid card on every screen */
+.login-page.login-simple{padding:clamp(14px,4vw,60px);padding-bottom:max(clamp(14px,4vw,60px),env(safe-area-inset-bottom))}
+.login-page.login-simple .login-card{width:min(480px,100%)}
+.login-page.login-simple .login-card h2{font-size:clamp(26px,6.2vw,40px)}
+.login-page.login-simple .login-card .field{font-size:16px}
+@media(max-height:640px){
+  .login-page.login-simple{place-items:start center;padding-top:16px}
+  .login-page.login-simple .login-card{padding-top:34px;padding-bottom:28px}
+  .login-page.login-simple .login-card > .hint{margin:28px 0 20px}
+}
+
+/* Large screens */
+@media(min-width:1600px){
+  .page{max-width:1480px}
+  .app-shell{grid-template-columns:300px minmax(0,1fr)}
+}
+
+/* Tablets / small laptops */
+@media(max-width:1120px){
+  .main-area{padding:clamp(20px,3vw,36px) clamp(16px,3vw,36px) 64px}
+  .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .detail-grid{grid-template-columns:1fr}
+  .form-grid{gap:16px}
+}
+@media(max-width:900px) and (min-width:721px){
+  .app-shell{grid-template-columns:210px minmax(0,1fr)}
+  .nav-link{font-size:14px;padding:9px 11px;gap:10px}
+  .nav-link span:first-child{width:28px;height:28px}
+  .filter-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .filter-row .filter-search{grid-column:1/-1}
+  .top-user .user-meta{display:none}
+  .account-banner{padding:24px}
+}
+
+/* Phones */
+@media(max-width:720px){
+  html{font-size:15px}
+  .table-wrap{-webkit-overflow-scrolling:touch}
+  .modal-backdrop{padding:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  .modal{padding:20px 16px}
+  .modal-head h2{font-size:18px}
+  .field,.select-field,.textarea{font-size:16px}
+  .panel{padding:18px 15px;border-radius:var(--r-md)}
+  .stat-card{border-radius:var(--r-md)}
+  .quick-card{min-height:68px}
+  .timeline-item{padding-right:30px}
+  .detail-item{padding:14px}
+  .main-area{padding-bottom:max(48px,env(safe-area-inset-bottom))}
+  .topbar{padding-inline:12px}
+  .eligibility-types{grid-template-columns:1fr}
+  .penalty-control .step-button{height:50px}
+  .request-card{padding:15px 14px}
+  .record-item{padding:14px}
+  .toast{bottom:max(14px,env(safe-area-inset-bottom))}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-value{font-size:21px}
+  .stat-foot{font-size:11.5px}
+  .account-banner{border-radius:var(--r-xl);padding:20px 18px}
+  .page-head h1{font-size:23px}
+  .filter-row{grid-template-columns:1fr}
+  .request-card-meta{grid-template-columns:1fr 1fr}
+}
+@media(max-width:360px){
+  .stats-grid{grid-template-columns:1fr}
+  .login-page.login-simple .login-card{padding:34px 18px 28px}
+  .button{padding-inline:14px}
+}
+
+/* Touch devices: comfortable targets, no sticky hover jumps */
+@media(hover:none){
+  .nav-link:hover,.quick-card:hover,.stat-card:hover,.action-row:hover,.record-item:hover{transform:none}
+  .button,.nav-link{min-height:48px}
+  .button-small{min-height:42px}
+}
+
+/* Subtle visual refinements */
+.panel,.stat-card,.quick-card,.request-card{transition:box-shadow .35s var(--ease-out),border-color .3s var(--ease),transform .35s var(--ease-out)}
+.panel:hover{box-shadow:var(--sh-md)}
+.table-wrap{scrollbar-width:thin;scrollbar-color:var(--gold-400) transparent}
+.table-wrap table{min-width:min(660px,100%)}
+@media(min-width:721px){.table-wrap table{min-width:660px}}
+tbody tr:nth-child(even){background:rgba(244,238,222,.35)}
+.topbar{box-shadow:0 8px 24px -22px rgba(20,40,30,.5)}
+.status,.pill{box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+.login-page.login-simple .login-card .field{border-radius:8px}
+.login-page.login-simple .login-card .button-primary{border-radius:8px}
+@media(prefers-color-scheme:dark){:root{color-scheme:light}}
     </style>
   </head>
   <body>
