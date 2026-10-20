@@ -1210,7 +1210,7 @@ function isEmployee() { return hasRole("EMPLOYEE"); }
 function isManager() { return hasRole("MANAGER"); }
 function isHr() { return hasRole("HR") || hasRole("ADMIN"); }
 function isAdmin() { return hasRole("ADMIN"); }
-function canLoan() { return Boolean(isEmployee() || (isManager() && state.user.canCreateFinancial)); }
+function canLoan() { return Boolean(isManager() && state.user.canCreateFinancial); }
 function canFinancial() { return Boolean(isManager() && state.user.canCreateFinancial); }
 function canApprove() { return isManager() || isHr(); }
 function accountLabel() {
