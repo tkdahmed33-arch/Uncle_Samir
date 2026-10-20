@@ -924,6 +924,31 @@ tbody tr:nth-child(even){background:rgba(244,238,222,.35)}
 .login-page.login-simple .login-card .field{border-radius:8px}
 .login-page.login-simple .login-card .button-primary{border-radius:8px}
 @media(prefers-color-scheme:dark){:root{color-scheme:light}}
+
+/* ── Layout fixes: tables, names, statuses, stat numbers ── */
+.dashboard-grid{grid-template-columns:minmax(0,1.6fr) minmax(0,.9fr)}
+@media(max-width:1500px){.dashboard-grid{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:721px){
+  .table-wrap table{min-width:920px}
+  td,th{padding:14px 12px}
+  td:first-child{white-space:nowrap}
+  td:nth-child(2){min-width:150px}
+  td:nth-child(3){min-width:130px}
+  td:last-child{min-width:210px}
+}
+td .row-title{font-size:14px;line-height:1.6}
+td .status,td .pill{white-space:normal;line-height:1.5;text-align:right}
+td .row-sub{white-space:normal}
+th{white-space:nowrap}
+.request-card .status{white-space:normal;line-height:1.5}
+.request-card-head{align-items:flex-start}
+.stat-value{font-family:var(--font-body);font-weight:700;font-size:clamp(22px,2vw,30px);line-height:1.25;overflow-wrap:anywhere;letter-spacing:0}
+.stat-card{min-width:0}
+.stat-foot{overflow-wrap:anywhere}
+.action-row{flex-wrap:wrap}
+.action-row>div{min-width:0;flex:1 1 200px}
+.row-title{overflow-wrap:anywhere}
+.panel-head{flex-wrap:wrap}
     </style>
   </head>
   <body>
@@ -1314,6 +1339,13 @@ async function renderDashboard(main) {
       ? cachedDashboard.data
       : await rpc("apiGetDashboard", state.token);
     if (!cachedDashboard || Date.now() - cachedDashboard.savedAt >= 20000) {
+      try {
+        const allRequests = await rpc("apiListRequests", state.token, { kind: "ALL", status: "ALL", employeeCode: "", employeeName: "", createdDate: "", department: "", fromDate: "", toDate: "", search: "" });
+        const penaltyDays = (Array.isArray(allRequests) ? allRequests : [])
+          .filter((request) => request.kind === "PENALTY")
+          .reduce((sum, request) => sum + (Number(request.amount) || 0), 0);
+        data.counts = { ...data.counts, totalAmount: Math.max(0, (Number(data.counts.totalAmount) || 0) - penaltyDays) };
+      } catch (_) { /* keep server total if the list can't be loaded */ }
       state.dashboardCache = { savedAt: Date.now(), data };
     }
     const counts = data.counts;
@@ -1401,7 +1433,7 @@ async function renderDashboard(main) {
       '</div></div></div>' +
       (data.needsAction.length ? '<div class="action-list">' + data.needsAction.map((request) => '<a class="action-row" href="#/requests/' + encodeURIComponent(request.requestId) +
         '" data-go="/requests/' + encodeURIComponent(request.requestId) + '"><div><div class="row-title">' + personName(request.employeeName) + " · " + kindLabel(request.kind) +
-        '</div><div class="row-sub">' + esc(request.requestId) + " · " + money(request.amount) + '</div><div class="row-sub">مقدم الطلب: ' + personName(request.createdByName) + '</div></div><span class="status state-needs-action">بانتظار إجراءك</span></a>').join("") +
+        '</div><div class="row-sub">' + esc(request.requestId) + " · " + requestAmountLabel(request) + '</div><div class="row-sub">مقدم الطلب: ' + personName(request.createdByName) + '</div></div><span class="status state-needs-action">بانتظار إجراءك</span></a>').join("") +
         "</div>" : emptyState(employee && !manager ? "لا توجد إجراءات مطلوبة" : "لا توجد موافقات معلقة", employee && !manager ? "تابع آخر مستجداتك من سجل الطلبات." : "ستظهر هنا الطلبات التي وصلت إلى مرحلة اعتمادك.")) + "</section></div></div>";
   } catch (error) { main.innerHTML = '<div class="page">' + displayError(error) + "</div>"; }
 }
