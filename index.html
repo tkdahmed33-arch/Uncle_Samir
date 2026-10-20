@@ -949,6 +949,38 @@ th{white-space:nowrap}
 .action-row>div{min-width:0;flex:1 1 200px}
 .row-title{overflow-wrap:anywhere}
 .panel-head{flex-wrap:wrap}
+
+/* ── Mobile refinements: banner mark, tidy request cards, actions first ── */
+@media(max-width:1500px){
+  .dashboard-grid>section:nth-child(2){order:-1}
+}
+@media(max-width:720px){
+  .account-banner{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 18px}
+  .account-banner>div:first-child{flex:1 1 auto;min-width:0}
+  .account-mark{order:2;flex:0 0 auto;min-width:0;width:64px;align-self:flex-start;gap:6px}
+  .account-mark span{width:52px;height:52px;border-radius:16px;font-size:22px}
+  .account-mark small{font-size:10.5px;line-height:1.4;max-width:68px;overflow-wrap:anywhere}
+  .account-banner h2{font-size:21px;line-height:1.5}
+  .account-banner p{font-size:13px;line-height:1.9}
+
+  .request-card{gap:12px;padding:16px 14px 14px;border-radius:18px;border-right-width:5px}
+  .request-card::before{display:none}
+  .request-card-head{align-items:flex-start;gap:10px;padding-bottom:12px;border-bottom:1px dashed rgba(201,169,97,.4)}
+  .request-card-head>div:first-child{min-width:0;flex:1 1 auto}
+  .request-card-head .status{flex:0 1 auto;max-width:52%;border-radius:14px;font-size:11.5px;padding:7px 11px;text-align:right}
+  .request-card .row-title{font-size:15px;letter-spacing:.01em}
+  .request-card .row-sub{margin-top:6px;line-height:1.6}
+  .request-card-meta{grid-template-columns:1fr 1fr;gap:10px;padding-top:0;border-top:0}
+  .request-card-meta>div{min-width:0;padding:10px 12px;border-radius:12px;background:rgba(201,169,97,.09);border:1px solid rgba(201,169,97,.2);font-size:11.5px}
+  .request-card-meta>div:last-child:nth-child(odd){grid-column:1/-1}
+  .request-card-meta strong{margin-top:4px;font-size:13.5px;line-height:1.6;overflow-wrap:anywhere}
+  .request-card-foot{padding-top:2px}
+  .request-card-foot .row-sub{margin-top:0}
+
+  .action-row{padding:15px 14px;border-radius:16px;align-items:flex-start}
+  .action-row>div{flex:1 1 100%}
+  .action-row .status{align-self:flex-start}
+}
     </style>
   </head>
   <body>
