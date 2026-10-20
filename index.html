@@ -7,13 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#04322B">
 
+    <link rel="preconnect" href="https://script.google.com">
+    <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
 
     <title>HR System</title>
     <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap');
 
 /* ══════════════════════════════════════════════════════════════
    HR System · نظام الموارد البشرية
@@ -981,6 +982,18 @@ th{white-space:nowrap}
   .action-row>div{flex:1 1 100%}
   .action-row .status{align-self:flex-start}
 }
+
+/* ── Performance: lighter effects on phones / touch ── */
+@media(max-width:720px),(hover:none){
+  body{background-attachment:scroll}
+  body::after{display:none}
+  .topbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,253,247,.97)}
+  .modal-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}
+  .login-page.login-simple::before,.login-page.login-simple::after{animation:none}
+  .login-page.login-simple::after{filter:none}
+  .login-page.login-simple .login-card .button-primary::before{animation:none}
+  .stat-card,.quick-grid>*,.dashboard-grid>*,.page-head,.account-banner{animation-duration:.25s;animation-delay:0s!important}
+}
     </style>
   </head>
   <body>
@@ -1367,17 +1380,19 @@ async function renderDashboard(main) {
   main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
   try {
     const cachedDashboard = state.dashboardCache;
-    const data = cachedDashboard && Date.now() - cachedDashboard.savedAt < 20000
-      ? cachedDashboard.data
-      : await rpc("apiGetDashboard", state.token);
-    if (!cachedDashboard || Date.now() - cachedDashboard.savedAt >= 20000) {
-      try {
-        const allRequests = await rpc("apiListRequests", state.token, { kind: "ALL", status: "ALL", employeeCode: "", employeeName: "", createdDate: "", department: "", fromDate: "", toDate: "", search: "" });
-        const penaltyDays = (Array.isArray(allRequests) ? allRequests : [])
+    const dashboardFresh = cachedDashboard && Date.now() - cachedDashboard.savedAt < 20000;
+    const allFilters = { kind: "ALL", status: "ALL", employeeCode: "", employeeName: "", createdDate: "", department: "", fromDate: "", toDate: "", search: "" };
+    const listPromise = dashboardFresh ? null : rpc("apiListRequests", state.token, allFilters).catch(() => null);
+    const data = dashboardFresh ? cachedDashboard.data : await rpc("apiGetDashboard", state.token);
+    if (!dashboardFresh) {
+      const allRequests = await listPromise;
+      if (Array.isArray(allRequests)) {
+        const penaltyDays = allRequests
           .filter((request) => request.kind === "PENALTY")
           .reduce((sum, request) => sum + (Number(request.amount) || 0), 0);
         data.counts = { ...data.counts, totalAmount: Math.max(0, (Number(data.counts.totalAmount) || 0) - penaltyDays) };
-      } catch (_) { /* keep server total if the list can't be loaded */ }
+        state.requestListCache[JSON.stringify(allFilters)] = { savedAt: Date.now(), requests: allRequests };
+      }
       state.dashboardCache = { savedAt: Date.now(), data };
     }
     const counts = data.counts;
@@ -2231,16 +2246,19 @@ document.addEventListener("submit", async (event) => {
 window.addEventListener("hashchange", renderRoute);
 
 async function boot() {
+  const statusPromise = rpc("apiGetAppStatus");
+  const sessionPromise = state.token ? rpc("apiGetSession", state.token) : null;
+  if (sessionPromise) sessionPromise.catch(() => {});
   try {
-    state.status = await rpc("apiGetAppStatus");
+    state.status = await statusPromise;
   } catch (error) {
     state.bootError = error.message || "تعذر الاتصال بخدمة النظام.";
     renderLogin();
     return;
   }
-  if (state.token) {
+  if (sessionPromise) {
     try {
-      state.user = await rpc("apiGetSession", state.token);
+      state.user = await sessionPromise;
       renderRoute();
       return;
     } catch (_) {
