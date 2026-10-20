@@ -1110,7 +1110,7 @@ function invalidateFinancialViewCache() {
 
 const ROLE_LABELS = { EMPLOYEE: "موظف", MANAGER: "مدير", OBSERVER: "مراقب", HR: "الموارد البشرية", ADMIN: "مسؤول النظام" };
 const STATUS_LABELS = { PENDING: "قيد الانتظار", APPROVED: "معتمد", REJECTED: "مرفوض" };
-const KIND_LABELS = { LOAN15: "سلفة 15", LOAN25: "سلفة 25", DEDUCTION: "خصم مالي", PENALTY: "جزاء" };
+const KIND_LABELS = { LOAN15: "سلفة 15", LOAN25: "سلفة 25", DEDUCTION: "تحميل", PENALTY: "جزاء" };
 const RECORD_TYPE_LABELS = { BRANCH: "فرع", DEPARTMENT: "قسم ورئيسه", ROLE_ASSIGNMENT: "تعيين صلاحية", APPROVER: "موافق" };
 const AUDIT_LABELS = {
   LOGIN: "تسجيل دخول", LOGOUT: "تسجيل خروج", REQUEST_CREATED: "إنشاء طلب",
@@ -1215,7 +1215,7 @@ function canFinancial() { return Boolean(isManager() && state.user.canCreateFina
 function canApprove() { return isManager() || isHr(); }
 function accountLabel() {
   const adminAreas = (state.user.administrations || []).filter(Boolean).join("، ");
-  const managerTitle = state.user.canCreateFinancial
+  const managerTitle = state.user.isBranchManager
     ? "مدير فرع " + (state.user.department || "")
     : adminAreas
       ? "مدير إدارة " + adminAreas
@@ -1385,7 +1385,7 @@ function renderShell() {
   ];
   if (canLoan()) links.push(navItem("/new/loan", "طلب سلفة", "٠٣", current));
   if (canFinancial()) {
-    links.push(navItem("/new/deduction", "طلب خصم", "٠٤", current));
+    links.push(navItem("/new/deduction", "تسجيل تحميل", "٠٤", current));
     links.push(navItem("/new/penalty", "طلب جزاء", "٠٥", current));
   }
   const adminLinks = isHr()
@@ -1441,19 +1441,8 @@ async function renderDashboard(main) {
     const cachedDashboard = state.dashboardCache;
     const dashboardFresh = cachedDashboard && Date.now() - cachedDashboard.savedAt < 20000;
     const allFilters = { kind: "ALL", status: "ALL", employeeCode: "", employeeName: "", createdDate: "", department: "", fromDate: "", toDate: "", search: "" };
-    const listPromise = dashboardFresh ? null : rpc("apiListRequests", state.token, allFilters).catch(() => null);
     const data = dashboardFresh ? cachedDashboard.data : await rpc("apiGetDashboard", state.token);
-    if (!dashboardFresh) {
-      const allRequests = await listPromise;
-      if (Array.isArray(allRequests)) {
-        const penaltyDays = allRequests
-          .filter((request) => request.kind === "PENALTY")
-          .reduce((sum, request) => sum + (Number(request.amount) || 0), 0);
-        data.counts = { ...data.counts, totalAmount: Math.max(0, (Number(data.counts.totalAmount) || 0) - penaltyDays) };
-        state.requestListCache[JSON.stringify(allFilters)] = { savedAt: Date.now(), requests: allRequests };
-      }
-      state.dashboardCache = { savedAt: Date.now(), data };
-    }
+    if (!dashboardFresh) state.dashboardCache = { savedAt: Date.now(), data };
     const counts = data.counts;
     const employee = isEmployee();
     const manager = isManager();
@@ -1488,7 +1477,7 @@ async function renderDashboard(main) {
     const quick = [];
     if (branchManager) {
       quick.push('<a class="quick-card" href="#/new/loan" data-go="/new/loan"><span class="quick-icon">+</span><span>طلب سلفة</span></a>');
-      quick.push('<a class="quick-card" href="#/new/deduction" data-go="/new/deduction"><span class="quick-icon">−</span><span>إرسال طلب خصم</span></a>');
+      quick.push('<a class="quick-card" href="#/new/deduction" data-go="/new/deduction"><span class="quick-icon">−</span><span>تسجيل تحميل</span></a>');
       quick.push('<a class="quick-card" href="#/new/penalty" data-go="/new/penalty"><span class="quick-icon">◆</span><span>إرسال طلب جزاء</span></a>');
     }
     const scopeText = employee && !manager
@@ -1680,7 +1669,7 @@ async function renderNewRequest(main, path) {
   const kind = path === "/new/loan" ? "LOAN15" : path === "/new/deduction" ? "DEDUCTION" : "PENALTY";
   const loan = kind === "LOAN15";
   const penalty = kind === "PENALTY";
-  const title = loan ? "طلب سلفة" : kind === "DEDUCTION" ? "طلب خصم مالي" : "طلب جزاء";
+  const title = loan ? "طلب سلفة" : kind === "DEDUCTION" ? "تسجيل تحميل" : "طلب جزاء";
   const maxAttachmentMb = Number(state.status && state.status.attachmentMaxMb) || 8;
   const canSetEmployee = isManager() && Boolean(state.user.canCreateFinancial);
   if (loan ? !canLoan() : !canFinancial()) {
@@ -1699,11 +1688,12 @@ async function renderNewRequest(main, path) {
   }
   const employeeField = canSetEmployee
     ? '<label class="form-group"><span class="form-label">الموظف</span><select class="select-field" name="employeeCode" required><option value="">اختر الموظف</option>' +
-      requestEmployees.filter((employee) => employee.active).map((employee) => '<option value="' + esc(employee.employeeCode) + '">' +
+      requestEmployees.filter((employee) => employee.active && !(penalty && String(employee.employeeCode).toLowerCase() === String(state.user.employeeCode).toLowerCase())).map((employee) => '<option value="' + esc(employee.employeeCode) + '">' +
         personName(employee.name) + " · كود: " + esc(employee.employeeCode) + "</option>").join("") + "</select></label>"
     : '<input type="hidden" name="employeeCode" value="' + esc(state.user.employeeCode) + '">';
   main.innerHTML = '<div class="page">' + pageHead(title, loan
     ? "اختر نوع السلفة المتاح. يظهر المبلغ المعتمد في تفاصيل الطلب."
+    : kind === "DEDUCTION" ? "يُسجَّل التحميل مباشرةً ويُعتمد نهائيًا دون مراحل موافقة."
     : "تُرسل البيانات إلى مراحل الموافقة المحددة للموظف بالترتيب.") +
     '<section class="panel" style="max-width:860px"><form id="new-request-form"><div class="form-grid">' +
     employeeField +
@@ -1724,7 +1714,8 @@ async function renderNewRequest(main, path) {
     '</div>' + (loan ? '<section class="loan-eligibility" id="loan-eligibility" aria-live="polite">جارٍ التحقق من أهلية السلف لهذا الموظف…</section>' : "") +
     '<div class="notice" style="margin-top:18px">' + (loan
       ? "يمكنك متابعة حالة الطلب والمبلغ المعتمد من صفحة الطلبات."
-    : "لن يُحفظ الطلب إذا لم تُضبط مراحل الموافقة النشطة لهذا الموظف.") + '</div><div class="form-actions"><button type="button" class="button button-quiet" data-go="/dashboard">إلغاء</button><button class="button button-primary" type="submit">' + (loan ? "إرسال طلب السلفة" : "إرسال للموافقة") + '</button></div></form></section></div>';
+    : kind === "DEDUCTION" ? "يُسجَّل التحميل مباشرةً ويُعتمد اعتمادًا نهائيًا دون مراحل موافقة."
+    : "لن يُحفظ الطلب إذا لم تُضبط مراحل الموافقة النشطة لهذا الموظف.") + '</div><div class="form-actions"><button type="button" class="button button-quiet" data-go="/dashboard">إلغاء</button><button class="button button-primary" type="submit">' + (loan ? "إرسال طلب السلفة" : kind === "DEDUCTION" ? "تسجيل التحميل" : "إرسال للموافقة") + '</button></div></form></section></div>';
   if (loan) {
     const form = document.getElementById("new-request-form");
     const employeeSelect = form.elements.employeeCode;
@@ -1826,7 +1817,7 @@ async function renderEmployeeFinancialProfile(main, employeeCode) {
       ["السلف", loans.length, loans.length ? "إجمالي المطلوب: " + money(loans.reduce((sum, request) =>
         sum + Number(request.requestedAmount || request.amount || 0), 0)) : "لا توجد طلبات سلف"],
       ["الخصومات", deductions.length, deductions.length ? "إجمالي المبالغ: " + money(deductions.reduce((sum, request) =>
-        sum + Number(request.amount || 0), 0)) : "لا توجد طلبات خصم"],
+        sum + Number(request.amount || 0), 0)) : "لا توجد تحميلات"],
       ["الجزاءات", penalties.length, penalties.length ? "إجمالي المدة: " + penalties.reduce((sum, request) =>
         sum + Number(request.amount || 0), 0) + " يوم" : "لا توجد طلبات جزاء"],
     ];
@@ -2244,6 +2235,7 @@ document.addEventListener("submit", async (event) => {
       invalidateFinancialViewCache();
       notify(isLoan
         ? "تم إرسال طلب السلفة لمراجعة الموارد البشرية."
+        : kind === "DEDUCTION" ? "تم تسجيل التحميل واعتماده نهائيًا."
         : "تم إرسال الطلب إلى أول مرحلة موافقة.");
       go("/requests");
     } else if (form.id === "employee-search-form") {
