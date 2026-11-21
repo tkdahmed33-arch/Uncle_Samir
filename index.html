@@ -1068,6 +1068,15 @@ body::after{display:none}
 .ctl-changes{max-height:48vh;overflow:auto;margin:14px 0;display:flex;flex-direction:column;gap:8px}
 .ctl-change{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 14px;font-size:13px;line-height:1.9;background:var(--surface)}
 .ctl-old{color:var(--terracotta);text-decoration:line-through}.ctl-new{color:var(--emerald-700);font-weight:700}
+
+.ctl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--ivory-200)}
+.ctl-bar>span{font-weight:700;color:var(--emerald-900);flex:1;min-width:160px}
+.ctl-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;align-items:end}
+.ctl-date{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--ink-700)}
+.ctl-presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;font-size:13px;color:var(--muted)}
+.ctl-stage-row{display:grid;grid-template-columns:150px 140px 1fr;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;font-weight:700}
+td input[type=checkbox],th input[type=checkbox]{width:18px;height:18px;accent-color:var(--emerald-700)}
+@media (max-width:860px){.ctl-filters{grid-template-columns:1fr 1fr}.ctl-stage-row{grid-template-columns:1fr}}
 @media (max-width:860px){.ctl-two{grid-template-columns:1fr}}
     </style>
   </head>
@@ -1406,7 +1415,7 @@ function renderShell() {
   }
   const adminLinks = isHr()
     ? '<div class="nav-label">الإدارة</div>' + navItem("/control", "لوحة التحكم", "★", current) + navItem("/employees", "دليل الموظفين", "٠٦", current) +
-      navItem("/settings", "الإعدادات والهيكل", "٠٧", current) + navItem("/audit", "سجل التدقيق", "٠٨", current)
+      navItem("/audit", "سجل التدقيق", "٠٨", current)
     : "";
   const employeeLink = !isHr() && (isManager() || hasRole("OBSERVER"))
     ? navItem("/employees", "فريق الموظفين", "٠٦", current) : "";
@@ -1447,7 +1456,7 @@ function renderRoute() {
   if (path.startsWith("/employees/")) return renderEmployeeFinancialProfile(main, path.slice("/employees/".length));
   if (path === "/employees") return renderEmployees(main);
   if (path === "/control") return renderControl(main);
-  if (path === "/settings") return renderSettings(main);
+  if (path === "/settings") { state.ctl.tab = "managers"; return go("/control"); }
   if (path === "/audit") return renderAudit(main);
   go("/dashboard");
 }
@@ -2344,7 +2353,7 @@ const CTL_EXCELJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/ex
 const CTL_SHEETS = {
   MAIN: "الموظفون (Main)", LOAN15: "سلفة 15", LOAN25: "سلفة 25", DEDUCTION: "التحميلات", PENALTY: "الجزاءات",
 };
-state.ctl = { tab: "overview", empSearch: "", loan: { kind: "ALL", status: "ALL", search: "" }, lookups: null, employees: [], loans: [], pending: null };
+state.ctl = { tab: "overview", empSearch: "", empSel: new Set(), sel: new Set(), loan: { kind: "ALL", status: "PENDING", search: "", fromDate: "", toDate: "", department: "" }, lookups: null, employees: [], loans: [], pending: null };
 
 function ctlLoadExcel() {
   if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
@@ -2382,7 +2391,7 @@ function ctlPill(status) {
 }
 
 function ctlTabs() {
-  const tabs = [["overview", "نظرة عامة"], ["employees", "الموظفون"], ["loans", "قرارات السلف"], ["sheets", "الشيتات (Excel)"]];
+  const tabs = [["overview", "نظرة عامة"], ["employees", "الموظفون"], ["loans", "قرارات السلف"], ["managers", "المديرون والهيكل"], ["sheets", "الشيتات (Excel)"]];
   return '<div class="ctl-tabs">' + tabs.map((tab) =>
     '<button type="button" class="ctl-tab ' + (state.ctl.tab === tab[0] ? "active" : "") + '" data-ctl="tab" data-tab="' + tab[0] + '">' + tab[1] + "</button>").join("") + "</div>";
 }
@@ -2403,6 +2412,7 @@ async function ctlRenderTab() {
     if (state.ctl.tab === "overview") await ctlOverview(body);
     else if (state.ctl.tab === "employees") await ctlEmployees(body);
     else if (state.ctl.tab === "loans") await ctlLoans(body);
+    else if (state.ctl.tab === "managers") await ctlManagers(body);
     else ctlSheets(body);
   } catch (error) { body.innerHTML = displayError(error); }
 }
@@ -2440,16 +2450,225 @@ async function ctlEmployees(body) {
   const search = state.ctl.empSearch;
   const [list] = await Promise.all([rpc("apiDashListEmployees", state.token, search), ctlEnsureLookups()]);
   state.ctl.employees = list;
+  const present = new Set(list.map((e) => e.employeeCode));
+  state.ctl.empSel = new Set(Array.from(state.ctl.empSel || []).filter((c) => present.has(c)));
   const stageText = (employee) => employee.approvalStages.length ? employee.approvalStages.map((stage) =>
     '<span class="ctl-stage ' + (stage.status === "ok" ? "" : "bad") + '" title="' + esc(stage.reference) + '">' + esc(stage.status === "ok" ? stage.name : "⚠ " + stage.reference) + "</span>").join(" ← ") : "—";
-  body.innerHTML = '<section class="panel"><div class="panel-head"><div><h2 class="section-title">الموظفون (' + list.length + ')</h2><div class="section-note">أضف موظفًا، أو افتح أي موظف لتغيير المدير أو كلمة المرور أو الكود أو الاسم.</div></div>' +
+  body.innerHTML = '<section class="panel"><div class="panel-head"><div><h2 class="section-title">الموظفون (' + list.length + ')</h2><div class="section-note">لتعديل موظف واحد اضغط «تعديل». لتعديل مجموعة: علّم الموظفين ثم اضغط «تعديل جماعي».</div></div>' +
     '<button class="button button-primary" data-ctl="emp-new">＋ إضافة موظف</button></div>' +
     '<form id="ctl-emp-search" class="filter-row" style="grid-template-columns:1fr auto"><input class="field" name="search" value="' + esc(search) + '" placeholder="ابحث بالاسم أو الكود أو القسم"><button class="button button-primary">بحث</button></form>' +
-    (list.length ? '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>القسم</th><th>مسار الموافقة (المديرون)</th><th>الحالة</th><th></th></tr></thead><tbody>' +
-      list.map((e, i) => "<tr><td>" + esc(e.employeeCode) + "</td><td><strong>" + esc(e.name) + "</strong>" +
+    '<div class="ctl-bar" id="ctl-emp-bar"><span id="ctl-emp-count"></span><button class="button button-secondary button-small" data-ctl="emp-bulk" id="ctl-emp-bulk">تعديل جماعي للمحدد</button></div>' +
+    (list.length ? '<div class="table-wrap"><table><thead><tr><th style="width:44px"><input type="checkbox" data-sel="empall" aria-label="تحديد الكل"></th><th>الكود</th><th>الاسم</th><th>القسم</th><th>مسار الموافقة (المديرون)</th><th>الحالة</th><th></th></tr></thead><tbody>' +
+      list.map((e, i) => '<tr><td><input type="checkbox" data-sel="emp" value="' + esc(e.employeeCode) + '"' + (state.ctl.empSel.has(e.employeeCode) ? " checked" : "") + '></td><td>' + esc(e.employeeCode) + "</td><td><strong>" + esc(e.name) + "</strong>" +
         (e.managerAccounts.length ? '<div class="row-sub">حساب مدير: ' + esc(e.managerAccounts.map((m) => m.department).join("، ")) + "</div>" : "") + "</td><td>" + esc(e.department || "—") + "</td><td>" + stageText(e) +
         '</td><td><span class="pill ' + (e.active ? "" : "inactive") + '">' + (e.active ? "نشط" : "غير نشط") + '</span></td><td><button class="button button-quiet button-small" data-ctl="emp-edit" data-i="' + i + '">تعديل</button></td></tr>').join("") +
       "</tbody></table></div>" : emptyState("لا توجد نتائج", "جرّب بحثًا آخر.")) + "</section>";
+  ctlUpdateBars();
+}
+
+function ctlUpdateBars() {
+  const e = document.getElementById("ctl-emp-count");
+  if (e) {
+    const n = state.ctl.empSel.size;
+    e.textContent = n ? "تم تحديد " + n + " موظف" : "لم يتم تحديد موظفين بعد";
+    document.getElementById("ctl-emp-bulk").disabled = !n;
+  }
+  const l = document.getElementById("ctl-loan-count");
+  if (l) {
+    const picked = state.ctl.loans.filter((r) => state.ctl.sel.has(r.requestId));
+    const total = picked.reduce((s, r) => s + (Number(r.requestedAmount) || 0), 0);
+    l.textContent = picked.length ? "المحدد: " + picked.length + " طلب · إجمالي المطلوب: " + total.toLocaleString("en-US") : "لم يتم تحديد طلبات بعد";
+    document.querySelectorAll("[data-ctl='loans-approve'],[data-ctl='loans-reject']").forEach((b) => { b.disabled = !picked.length; });
+  }
+}
+
+function ctlWeekRange(offset) {
+  const now = new Date();
+  const day = (now.getDay() + 1) % 7; // السبت = 0
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day - offset * 7);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  const f = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  return [f(start), f(end)];
+}
+
+async function ctlLoans(body) {
+  const f = state.ctl.loan;
+  const list = await rpc("apiDashListLoans", state.token, f);
+  state.ctl.loans = list;
+  const present = new Set(list.map((r) => r.requestId));
+  state.ctl.sel = new Set(Array.from(state.ctl.sel || []).filter((id) => present.has(id)));
+  const opt = (value, label, current) => '<option value="' + value + '"' + (value === current ? " selected" : "") + ">" + label + "</option>";
+  body.innerHTML = '<section class="panel"><div class="panel-head"><div><h2 class="section-title">قرارات السلف (' + list.length + ')</h2><div class="section-note">اختر الفترة، علّم الطلبات، ثم اعتمدها أو ارفضها مرة واحدة.</div></div></div>' +
+    '<form id="ctl-loan-filter" class="ctl-filters">' +
+    '<input class="field" name="search" value="' + esc(f.search) + '" placeholder="بحث بالاسم أو الكود">' +
+    '<select class="select-field" name="kind">' + opt("ALL", "كل السلف", f.kind) + opt("LOAN15", "سلفة 15", f.kind) + opt("LOAN25", "سلفة 25", f.kind) + "</select>" +
+    '<select class="select-field" name="status">' + opt("PENDING", "قيد الانتظار", f.status) + opt("ALL", "كل الحالات", f.status) + opt("APPROVED", "معتمد", f.status) + opt("REJECTED", "مرفوض", f.status) + "</select>" +
+    '<input class="field" name="department" value="' + esc(f.department) + '" placeholder="الفرع">' +
+    '<label class="ctl-date">من<input class="field" type="date" name="fromDate" value="' + esc(f.fromDate) + '"></label>' +
+    '<label class="ctl-date">إلى<input class="field" type="date" name="toDate" value="' + esc(f.toDate) + '"></label>' +
+    '<button class="button button-primary">عرض</button></form>' +
+    '<div class="ctl-presets"><span>اختصارات:</span><button type="button" class="button button-quiet button-small" data-ctl="preset" data-p="week">هذا الأسبوع</button>' +
+    '<button type="button" class="button button-quiet button-small" data-ctl="preset" data-p="lastweek">الأسبوع الماضي</button>' +
+    '<button type="button" class="button button-quiet button-small" data-ctl="preset" data-p="clear">كل التواريخ</button></div>' +
+    '<div class="ctl-bar"><span id="ctl-loan-count"></span><input class="field" id="ctl-cap" type="number" min="50" step="50" placeholder="حد أقصى للمبلغ (اختياري)" style="max-width:210px">' +
+    '<input class="field" id="ctl-bulk-note" placeholder="ملاحظة / سبب الرفض" style="max-width:240px">' +
+    '<button class="button button-primary button-small" data-ctl="loans-approve">اعتماد المحدد</button><button class="button button-danger button-small" data-ctl="loans-reject">رفض المحدد</button></div>' +
+    (list.length ? '<div class="table-wrap"><table><thead><tr><th style="width:44px"><input type="checkbox" data-sel="loanall" aria-label="تحديد الكل"></th><th>التاريخ</th><th>الكود</th><th>الاسم</th><th>الفرع</th><th>النوع</th><th>المطلوب</th><th>المعتمد</th><th>الحالة</th><th></th></tr></thead><tbody>' +
+      list.map((r, i) => '<tr><td><input type="checkbox" data-sel="loan" value="' + esc(r.requestId) + '"' + (state.ctl.sel.has(r.requestId) ? " checked" : "") + "></td><td>" + esc(String(r.createdAt || "").slice(0, 10)) + "</td><td>" + esc(r.employeeCode) + "</td><td>" + esc(r.employeeName) + "</td><td>" + esc(r.department) + "</td><td>" + esc(KIND_LABELS[r.kind]) + "</td><td>" + r.requestedAmount +
+        "</td><td>" + (r.status === "APPROVED" ? r.approvedAmount : "—") + "</td><td>" + ctlPill(r.status) +
+        '</td><td><button class="button button-quiet button-small" data-ctl="loan-decide" data-i="' + i + '">قرار</button></td></tr>').join("") + "</tbody></table></div>" : emptyState("لا توجد سلف", "غيّر التصفية أو الفترة.")) + "</section>";
+  ctlUpdateBars();
+}
+
+async function ctlBulkLoans(decision) {
+  const picked = state.ctl.loans.filter((r) => state.ctl.sel.has(r.requestId));
+  if (!picked.length) { notify("علّم الطلبات أولاً."); return; }
+  const note = document.getElementById("ctl-bulk-note").value.trim();
+  const capText = document.getElementById("ctl-cap").value.trim();
+  const cap = capText ? Number(capText) : 0;
+  if (decision === "REJECTED" && !note) { notify("اكتب سبب الرفض في خانة الملاحظة."); return; }
+  if (cap && (!Number.isInteger(cap) || cap < 50 || cap % 50 !== 0)) { notify("الحد الأقصى لازم يكون من مضاعفات 50."); return; }
+  const decisions = picked.map((r) => ({
+    requestId: r.requestId, decision,
+    approvedAmount: decision === "APPROVED" ? (cap ? Math.min(Number(r.requestedAmount), cap) : Number(r.requestedAmount)) : 0,
+    comment: note,
+  }));
+  const total = decisions.reduce((s, d) => s + d.approvedAmount, 0);
+  const text = decision === "APPROVED"
+    ? "<p>سيتم <strong>اعتماد " + decisions.length + " طلب</strong> بإجمالي <strong>" + total.toLocaleString("en-US") + "</strong>" + (cap ? " (بحد أقصى " + cap + " للطلب)" : " (كل طلب بمبلغه المطلوب)") + ".</p>"
+    : "<p>سيتم <strong>رفض " + decisions.length + " طلب</strong> بالسبب: «" + esc(note) + "».</p>";
+  if (!(await ctlConfirm("تأكيد القرار الجماعي", text + "<p>هل أنت متأكد؟</p>", decision === "APPROVED" ? "نعم، اعتمد الكل" : "نعم، ارفض الكل", decision === "REJECTED"))) return;
+  let done = 0;
+  try {
+    for (let i = 0; i < decisions.length; i += 40) {
+      notify("جارٍ التنفيذ… " + done + " / " + decisions.length);
+      await rpc("apiDashDecideLoans", state.token, decisions.slice(i, i + 40));
+      done += Math.min(40, decisions.length - i);
+    }
+    notify("تم تنفيذ " + done + " قرار.");
+  } catch (error) {
+    notify("تم تنفيذ " + done + " من " + decisions.length + " ثم توقف: " + error.message);
+  }
+  invalidateFinancialViewCache();
+  state.ctl.sel = new Set();
+  ctlRenderTab();
+}
+
+function ctlBulkEmployeeModal() {
+  const lk = state.ctl.lookups || { departments: [], approvers: [] };
+  const n = state.ctl.empSel.size;
+  const rows = [0, 1, 2, 3].map((i) => '<div class="ctl-stage-row"><span>المدير — المرحلة ' + (i + 1) + '</span><select class="select-field" name="m' + i + '"><option value="keep">بدون تغيير</option><option value="set">تغيير إلى</option><option value="clear">حذف</option></select>' +
+    '<input class="field" name="v' + i + '" list="ctl-approvers" placeholder="اسم أو كود المدير"></div>').join("");
+  const wrap = document.createElement("div");
+  wrap.innerHTML = renderModal("تعديل جماعي — " + n + " موظف",
+    '<form id="ctl-bulk-form"><div class="notice">أي حقل تسيبه «بدون تغيير» مش هيتأثر. هتشوف معاينة بالقديم والجديد قبل الحفظ.</div><div class="form-grid" style="margin-top:14px">' +
+    '<label class="form-group wide"><span class="form-label">القسم / الفرع الجديد</span><input class="field" name="department" list="ctl-depts" placeholder="اتركه فارغًا بدون تغيير"></label>' +
+    '<div class="wide">' + rows + '</div>' +
+    '<label class="form-group wide"><span class="form-label">الحالة</span><select class="select-field" name="active"><option value="keep">بدون تغيير</option><option value="true">تفعيل</option><option value="false">تعطيل</option></select></label></div>' +
+    '<datalist id="ctl-depts">' + lk.departments.map((d) => '<option value="' + esc(d) + '">').join("") + '</datalist>' +
+    '<datalist id="ctl-approvers">' + lk.approvers.map((a) => '<option value="' + esc(a.value) + '" label="' + esc(a.label) + '">').join("") + '</datalist>' +
+    '<div class="form-actions"><button class="button button-primary" type="submit">معاينة التغييرات</button></div></form>');
+  document.body.appendChild(wrap.firstElementChild);
+}
+
+async function ctlBulkPreview(form) {
+  const d = new FormData(form);
+  const payload = {
+    codes: Array.from(state.ctl.empSel), department: String(d.get("department") || "").trim(), active: String(d.get("active")),
+    stages: [0, 1, 2, 3].map((i) => ({ mode: String(d.get("m" + i)), value: String(d.get("v" + i) || "").trim() })),
+  };
+  const preview = await rpc("apiDashBulkEmployeesPreview", state.token, payload);
+  preview.counts = Object.assign({ added: 0, skipped: 0 }, preview.counts);
+  state.ctl.pendingBulk = { payload, preview };
+  const ok = !preview.errors.length && preview.changes.length;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = renderModal("معاينة التعديل الجماعي",
+    ctlPreviewHtml(preview) + '<div class="form-actions">' + (ok ? '<button class="button button-primary" data-ctl="bulk-apply">تطبيق على ' + preview.changes.length + ' موظف</button>' : "") + "</div>");
+  const old = document.querySelector(".modal-backdrop:not(.ctl-confirm)");
+  if (old) old.remove();
+  document.body.appendChild(wrap.firstElementChild);
+}
+
+async function ctlBulkApply(button) {
+  const pending = state.ctl.pendingBulk;
+  if (!pending) return;
+  if (!(await ctlConfirm("تأكيد التعديل الجماعي", "<p>سيتم تعديل <strong>" + pending.preview.changes.length + "</strong> موظف في شيت Main.</p><p>تؤخذ نسخة احتياطية CSV قبل الحفظ. متابعة؟</p>", "نعم، طبّق"))) return;
+  button.disabled = true;
+  try {
+    const result = await rpc("apiDashBulkEmployeesApply", state.token, pending.payload, pending.preview.fingerprint);
+    invalidateFinancialViewCache();
+    state.ctl.lookups = null; state.ctl.pendingBulk = null; state.ctl.empSel = new Set();
+    const modal = document.querySelector(".modal-backdrop:not(.ctl-confirm)"); if (modal) modal.remove();
+    notify("تم تعديل " + result.applied + " موظف.");
+    ctlRenderTab();
+  } catch (error) { notify(error.message); button.disabled = false; }
+}
+
+async function ctlManagers(body) {
+  const list = await rpc("apiDashStructure", state.token);
+  state.ctl.managers = list;
+  const section = (kind, title, note) => {
+    const items = list.map((m, i) => Object.assign({ i }, m)).filter((m) => m.kind === kind);
+    return '<section class="panel" style="margin-bottom:18px"><div class="panel-head"><div><h2 class="section-title">' + title + ' (' + items.length + ')</h2><div class="section-note">' + note + '</div></div>' +
+      '<button class="button button-primary button-small" data-ctl="mgr-new" data-kind="' + kind + '">＋ إضافة</button></div>' +
+      (items.length ? '<div class="table-wrap"><table><thead><tr><th>' + (kind === "ADMIN" ? "الإدارة" : kind === "HR" ? "الحساب" : "الفرع") + '</th><th>الاسم</th><th>كود الدخول</th><th>الباسورد</th><th>مستخدم عند</th><th></th></tr></thead><tbody>' +
+        items.map((m) => "<tr><td>" + esc(m.department) + "</td><td><strong>" + esc(m.name) + "</strong></td><td>" + esc(m.code) + "</td><td>" + (m.hasPassword ? "••••" : '<span class="ctl-stage bad">غير مكتوب</span>') + "</td><td>" +
+          (kind === "BRANCH" ? m.members + " موظف · " : "") + (kind === "HR" ? "—" : m.stageRefs + " مسار موافقة") +
+          '</td><td><button class="button button-quiet button-small" data-ctl="mgr-edit" data-i="' + m.i + '">تعديل</button> <button class="button button-danger button-small" data-ctl="mgr-del" data-i="' + m.i + '">حذف</button></td></tr>').join("") + "</tbody></table></div>" : '<div class="section-note">لا يوجد.</div>') + "</section>";
+  };
+  body.innerHTML = '<div class="notice" style="margin-bottom:18px">دي الحسابات اللي بتدخل الموقع من شيت <strong>Department</strong>. كل واحد بيدخل بالكود والباسورد بتوعه. أي إضافة أو تعديل هنا بيتكتب في الشيت مباشرة، ومش لازم تفتح الشيت.</div>' +
+    section("HR", "حسابات الموارد البشرية", "حسابات لوحة التحكم دي (الصف اللي مكتوب فيه HR).") +
+    section("BRANCH", "مديرو الفروع", "مدير كل فرع (الأعمدة A إلى D في الشيت).") +
+    section("ADMIN", "مديرو الإدارات / المناطق", "مديرو الإدارات اللي بيوافقوا على الطلبات (الأعمدة H إلى K).");
+}
+
+function ctlManagerModal(kind, item) {
+  const isNew = !item;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = renderModal((isNew ? "إضافة " : "تعديل ") + ({ BRANCH: "مدير فرع", ADMIN: "مدير إدارة", HR: "حساب موارد بشرية" })[kind],
+    '<form id="ctl-mgr-form" data-kind="' + kind + '" data-row="' + (item ? item.rowNumber : 0) + '"><div class="form-grid">' +
+    (kind === "HR" ? "" : '<label class="form-group wide"><span class="form-label">' + (kind === "ADMIN" ? "اسم الإدارة / المنطقة" : "اسم الفرع") + '</span><input class="field" name="department" required value="' + esc(item ? item.department : "") + '"></label>') +
+    '<label class="form-group"><span class="form-label">الاسم</span><input class="field" name="name" required value="' + esc(item ? item.name : "") + '"></label>' +
+    '<label class="form-group"><span class="form-label">كود الدخول</span><input class="field" name="code" required value="' + esc(item ? item.code : "") + '"></label>' +
+    '<label class="form-group wide"><span class="form-label">' + (isNew ? "كلمة المرور" : "كلمة مرور جديدة (اتركها فارغة بدون تغيير)") + '</span><input class="field" name="password" autocomplete="off" ' + (isNew ? "required" : "") + "></label>" +
+    (!isNew && kind !== "HR" ? '<label class="form-group wide"><span class="form-label"><input type="checkbox" name="updateReferences" checked> لو غيّرت الاسم أو الكود، حدّثه في مسارات موافقة الموظفين</span></label>' : "") +
+    '</div><div class="form-actions"><button class="button button-primary" type="submit">حفظ</button></div></form>');
+  document.body.appendChild(wrap.firstElementChild);
+}
+
+async function ctlSubmitManager(form) {
+  const d = new FormData(form);
+  const kind = form.dataset.kind;
+  const rowNumber = Number(form.dataset.row) || 0;
+  const input = {
+    kind, rowNumber, department: String(d.get("department") || "").trim(), name: String(d.get("name") || "").trim(),
+    code: String(d.get("code") || "").trim(), password: String(d.get("password") || ""),
+    updateReferences: form.elements.updateReferences ? form.elements.updateReferences.checked : true,
+  };
+  const old = rowNumber ? state.ctl.managers.find((m) => m.rowNumber === rowNumber && (kind === "ADMIN" ? m.kind === "ADMIN" : m.kind !== "ADMIN")) : null;
+  const lines = [];
+  if (!old) lines.push("إضافة: <strong>" + esc(input.name) + "</strong> (كود " + esc(input.code) + ")" + (input.department ? " — " + esc(input.department) : ""));
+  else {
+    if (old.department !== input.department && kind !== "HR") lines.push("الاسم: " + esc(old.department) + " ← <strong>" + esc(input.department) + "</strong>");
+    if (old.name !== input.name) lines.push("الاسم: " + esc(old.name) + " ← <strong>" + esc(input.name) + "</strong>");
+    if (old.code !== input.code) lines.push("الكود: " + esc(old.code) + " ← <strong>" + esc(input.code) + "</strong>");
+    if (input.password) lines.push("<strong>تغيير كلمة المرور</strong>");
+    if (!lines.length) { notify("لا توجد تغييرات."); return false; }
+  }
+  if (!(await ctlConfirm("تأكيد", '<ul class="ctl-list">' + lines.map((l) => "<li>" + l + "</li>").join("") + "</ul><p>سيتم الكتابة في شيت Department. متابعة؟</p>", "نعم، احفظ"))) return false;
+  const result = await rpc("apiDashSaveManager", state.token, input);
+  state.ctl.lookups = null; invalidateFinancialViewCache();
+  notify("تم الحفظ." + (result.updatedRefs ? " تم تحديث " + result.updatedRefs + " إحالة." : ""));
+  return true;
+}
+
+async function ctlDeleteManager(m) {
+  const warn = m.stageRefs ? "<p><strong>تنبيه:</strong> مستخدم في مسار موافقة " + m.stageRefs + " موظف، وحذفه هيوقف طلباتهم لحد ما تغيّر المدير.</p>" : "";
+  if (!(await ctlConfirm("حذف " + m.kindLabel, "<p>هيتحذف <strong>" + esc(m.name) + "</strong> (" + esc(m.department) + " · كود " + esc(m.code) + ") من شيت Department.</p>" + warn + "<p>هتتاخد نسخة احتياطية. متأكد؟</p>", "نعم، احذف", true))) return;
+  await rpc("apiDashDeleteManager", state.token, { kind: m.kind, rowNumber: m.rowNumber });
+  state.ctl.lookups = null; invalidateFinancialViewCache();
+  notify("تم الحذف.");
+  ctlRenderTab();
 }
 
 function ctlEmployeeModal(employee) {
@@ -2513,22 +2732,6 @@ async function ctlSubmitEmployee(form) {
   notify("تم الحفظ." + (result.warnings && result.warnings.length ? " (توجد تنبيهات)" : ""));
   if (result.warnings && result.warnings.length) await ctlConfirm("تنبيهات", '<ul class="ctl-list">' + result.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul>", "حسنًا");
   return true;
-}
-
-async function ctlLoans(body) {
-  const f = state.ctl.loan;
-  const list = await rpc("apiDashListLoans", state.token, f);
-  state.ctl.loans = list;
-  const opt = (value, label, current) => '<option value="' + value + '"' + (value === current ? " selected" : "") + ">" + label + "</option>";
-  body.innerHTML = '<section class="panel"><div class="panel-head"><div><h2 class="section-title">قرارات السلف (' + list.length + ')</h2><div class="section-note">اعتماد أو رفض أو إعادة فتح أي سلفة وتحديد المبلغ المعتمد.</div></div></div>' +
-    '<form id="ctl-loan-filter" class="filter-row" style="grid-template-columns:1fr 160px 160px auto"><input class="field" name="search" value="' + esc(f.search) + '" placeholder="بحث بالاسم أو الكود أو رقم الطلب">' +
-    '<select class="select-field" name="kind">' + opt("ALL", "كل السلف", f.kind) + opt("LOAN15", "سلفة 15", f.kind) + opt("LOAN25", "سلفة 25", f.kind) + "</select>" +
-    '<select class="select-field" name="status">' + opt("ALL", "كل الحالات", f.status) + opt("PENDING", "قيد الانتظار", f.status) + opt("APPROVED", "معتمد", f.status) + opt("REJECTED", "مرفوض", f.status) + "</select>" +
-    '<button class="button button-primary">تصفية</button></form>' +
-    (list.length ? '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الفرع</th><th>النوع</th><th>المطلوب</th><th>المعتمد</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>' +
-      list.map((r, i) => "<tr><td>" + esc(r.employeeCode) + "</td><td>" + esc(r.employeeName) + "</td><td>" + esc(r.department) + "</td><td>" + esc(KIND_LABELS[r.kind]) + "</td><td>" + r.requestedAmount +
-        "</td><td>" + (r.status === "APPROVED" ? r.approvedAmount : "—") + "</td><td>" + ctlPill(r.status) + "</td><td>" + esc(String(r.createdAt || "").slice(0, 10)) +
-        '</td><td><button class="button button-quiet button-small" data-ctl="loan-decide" data-i="' + i + '">قرار</button></td></tr>').join("") + "</tbody></table></div>" : emptyState("لا توجد سلف", "غيّر التصفية.")) + "</section>";
 }
 
 function ctlLoanModal(r) {
@@ -2763,12 +2966,39 @@ document.addEventListener("click", async (event) => {
       invalidateFinancialViewCache(); ctlRenderTab();
     }
     else if (action === "emp-new") ctlEmployeeModal(null);
+    else if (action === "emp-bulk") ctlBulkEmployeeModal();
+    else if (action === "bulk-apply") await ctlBulkApply(el);
+    else if (action === "loans-approve") await ctlBulkLoans("APPROVED");
+    else if (action === "loans-reject") await ctlBulkLoans("REJECTED");
+    else if (action === "preset") {
+      const r = el.dataset.p === "week" ? ctlWeekRange(0) : el.dataset.p === "lastweek" ? ctlWeekRange(1) : ["", ""];
+      state.ctl.loan.fromDate = r[0]; state.ctl.loan.toDate = r[1]; ctlRenderTab();
+    }
+    else if (action === "mgr-new") ctlManagerModal(el.dataset.kind, null);
+    else if (action === "mgr-edit") { const m = state.ctl.managers[Number(el.dataset.i)]; ctlManagerModal(m.kind, m); }
+    else if (action === "mgr-del") await ctlDeleteManager(state.ctl.managers[Number(el.dataset.i)]);
     else if (action === "emp-edit") ctlEmployeeModal(state.ctl.employees[Number(el.dataset.i)]);
     else if (action === "loan-decide") ctlLoanModal(state.ctl.loans[Number(el.dataset.i)]);
     else if (action === "grid-download") { el.disabled = true; try { await ctlDownloadGrid(document.getElementById("ctl-grid-key").value); } finally { el.disabled = false; } }
     else if (action === "import-preview") { el.disabled = true; try { await ctlImportPreview(); } finally { el.disabled = false; } }
     else if (action === "import-apply") await ctlImportApply(el);
   } catch (error) { notify(error.message || "حدث خطأ."); }
+}, true);
+
+document.addEventListener("change", (event) => {
+  const t = event.target;
+  if (!t.dataset || !t.dataset.sel) return;
+  const kind = t.dataset.sel;
+  const boxes = (name) => Array.from(document.querySelectorAll('input[data-sel="' + name + '"]'));
+  if (kind === "loanall" || kind === "empall") {
+    const name = kind === "loanall" ? "loan" : "emp";
+    const set = name === "loan" ? state.ctl.sel : state.ctl.empSel;
+    boxes(name).forEach((b) => { b.checked = t.checked; if (t.checked) set.add(b.value); else set.delete(b.value); });
+  } else {
+    const set = kind === "loan" ? state.ctl.sel : state.ctl.empSel;
+    if (t.checked) set.add(t.value); else set.delete(t.value);
+  }
+  ctlUpdateBars();
 });
 
 document.addEventListener("submit", async (event) => {
@@ -2778,7 +3008,9 @@ document.addEventListener("submit", async (event) => {
   event.stopImmediatePropagation();
   try {
     if (form.id === "ctl-emp-search") { state.ctl.empSearch = String(new FormData(form).get("search") || "").trim(); ctlRenderTab(); }
-    else if (form.id === "ctl-loan-filter") { const d = new FormData(form); state.ctl.loan = { search: String(d.get("search") || "").trim(), kind: d.get("kind"), status: d.get("status") }; ctlRenderTab(); }
+    else if (form.id === "ctl-loan-filter") { const d = new FormData(form); state.ctl.loan = { search: String(d.get("search") || "").trim(), kind: d.get("kind"), status: d.get("status"), department: String(d.get("department") || "").trim(), fromDate: String(d.get("fromDate") || ""), toDate: String(d.get("toDate") || "") }; ctlRenderTab(); }
+    else if (form.id === "ctl-bulk-form") await ctlBulkPreview(form);
+    else if (form.id === "ctl-mgr-form") { if (await ctlSubmitManager(form)) { document.querySelector(".modal-backdrop:not(.ctl-confirm)").remove(); ctlRenderTab(); } }
     else if (form.id === "ctl-emp-form") { if (await ctlSubmitEmployee(form)) { document.querySelector(".modal-backdrop:not(.ctl-confirm)").remove(); ctlRenderTab(); } }
     else if (form.id === "ctl-loan-form") {
       const decision = event.submitter ? event.submitter.dataset.decision : "APPROVED";
