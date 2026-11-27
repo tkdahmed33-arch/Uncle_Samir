@@ -4,7 +4,7 @@
     <base target="_self">
     <meta charset="utf-8">
     <meta name="application-version" content="1.4.0">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#04322B">
 
     <link rel="preconnect" href="https://script.google.com">
@@ -1082,7 +1082,7 @@ td input[type=checkbox],th input[type=checkbox]{width:18px;height:18px;accent-co
   body,.login-page,.login-page .login-card-wrap,.app-shell{min-height:calc(100dvh / var(--z,1))}
   .app-shell{grid-template-rows:78px minmax(calc(100dvh / var(--z,1) - 78px),auto)}
   .sidebar{height:calc(100dvh / var(--z,1))}
-  .table-wrap{overflow:visible}
+  .table-wrap{overflow-x:auto;overflow-y:hidden}
   .table-wrap table{min-width:0}
   th,td{white-space:nowrap;padding:13px 9px;font-size:13px}
   th{position:static;letter-spacing:.02em;font-size:11.5px}
@@ -1092,7 +1092,91 @@ td input[type=checkbox],th input[type=checkbox]{width:18px;height:18px;accent-co
   .table-wrap tbody tr:last-child td:first-child{border-bottom-right-radius:calc(var(--r-md) - 1px)}
   .table-wrap tbody tr:last-child td:last-child{border-bottom-left-radius:calc(var(--r-md) - 1px)}
 }
-    </style>
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes busySlide{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+.sk{background:linear-gradient(90deg,var(--ivory-200) 25%,rgba(255,255,255,.85) 50%,var(--ivory-200) 75%);background-size:200% 100%;animation:shimmer 1.4s linear infinite;border-radius:12px}
+.sk-wrap{display:grid;gap:18px}
+.sk-title{height:44px;width:min(320px,60%)}
+.sk-line{height:14px;width:min(420px,70%);margin-top:12px}
+.sk-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.sk-card{height:112px;border-radius:var(--r-md)}
+.sk-panel{display:grid;gap:12px;padding:22px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.sk-row{height:38px}
+#busy-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;overflow:hidden;opacity:0;transition:opacity .2s .15s;pointer-events:none}
+#busy-bar::before{content:"";position:absolute;inset:0;width:45%;background:linear-gradient(90deg,transparent,var(--gold-500),var(--emerald-600),transparent);animation:busySlide 1.1s ease-in-out infinite}
+#busy-chip{position:fixed;bottom:22px;left:22px;z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;background:var(--emerald-900);color:#FBEFD2;font-size:13px;font-weight:700;box-shadow:0 10px 30px rgba(10,40,45,.28);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s,transform .25s}
+.busy-dot{width:14px;height:14px;border-radius:50%;border:2px solid #FBEFD2;border-top-color:transparent;animation:spin .7s linear infinite}
+body.is-busy #busy-bar{opacity:1}
+body.is-busy #busy-chip{opacity:1;transform:none;transition-delay:.7s}
+.btn-loading{position:relative;pointer-events:none;opacity:.88;padding-inline-start:36px!important}
+.btn-loading::after{content:"";position:absolute;inset-inline-start:12px;top:50%;width:14px;height:14px;margin-top:-7px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+.dashboard-grid{grid-template-columns:minmax(0,1fr)!important}
+.dashboard-grid>section:nth-child(2){order:-1}
+td{max-width:300px;overflow:hidden;text-overflow:ellipsis}
+td .row-sub,td .row-title,td .table-link{display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+    
+@media (max-width:720px){
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+  body{overscroll-behavior-y:none;padding-inline:env(safe-area-inset-left) env(safe-area-inset-right)}
+  a,button,.button,.nav-link,.ctl-tab,[data-go],[data-ctl],label{touch-action:manipulation}
+  .button,.nav-link{min-height:44px}
+  .button-small{min-height:40px;padding-inline:14px}
+  .field,input,select,textarea{font-size:16px!important;min-height:46px;max-width:100%}
+  textarea.field{min-height:96px}
+  .main-area{padding-inline:14px;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+  .quick-grid{grid-template-columns:1fr;gap:10px}
+  .form-grid{grid-template-columns:1fr;gap:14px}
+  .ctl-two{grid-template-columns:1fr}
+  .stat-grid,.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+
+  .ctl-tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;margin-inline:-14px;padding:2px 14px 10px;gap:8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .ctl-tabs::-webkit-scrollbar{display:none}
+  .ctl-tab{flex:0 0 auto;scroll-snap-align:center;min-height:44px;padding-inline:18px}
+
+  .ctl-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .ctl-filters>*{min-width:0;width:100%}
+  .ctl-filters>.wide,.ctl-filters>:first-child{grid-column:1/-1}
+  .ctl-date{min-width:0}
+  .ctl-presets{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-inline:-14px;padding-inline:14px}
+  .ctl-presets .button{flex:0 0 auto}
+  .ctl-bar{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;flex-direction:column;align-items:stretch;gap:8px;padding:12px;border-radius:var(--r-lg,18px);background:rgba(250,246,236,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(4,30,25,.22)}
+  .ctl-bar>span{min-width:0;flex:none;text-align:center}
+  .ctl-bar .field,.ctl-bar input{max-width:none!important;width:100%}
+  .ctl-bar .button{width:100%;justify-content:center}
+  .ctl-stage-row{grid-template-columns:1fr;gap:6px}
+
+  .table-wrap{border:0;background:transparent;box-shadow:none;overflow:visible!important}
+  .table-wrap table,.table-wrap thead,.table-wrap tbody,.table-wrap tr,.table-wrap td{display:block;min-width:0!important;width:100%}
+  .table-wrap thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .table-wrap tbody tr{background:var(--surface)!important;border:1px solid var(--line);border-radius:var(--r-lg,16px);padding:6px 14px;margin-bottom:10px;box-shadow:var(--sh-xs);content-visibility:auto;contain-intrinsic-size:auto 190px}
+  .table-wrap td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line-2);max-width:none!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;text-align:left;font-size:14px;min-height:40px}
+  .table-wrap td:last-child{border-bottom:0}
+  .table-wrap td::before{content:attr(data-label);flex:0 0 auto;color:var(--muted);font-size:12px;font-weight:700;text-align:right}
+  .table-wrap td[data-label=""]::before{display:none}
+  .table-wrap td:has(>input[type=checkbox]){justify-content:flex-start;padding-top:4px}
+  .table-wrap td:has(>input[type=checkbox])::before{display:none}
+  .table-wrap td input[type=checkbox]{width:24px;height:24px}
+  .table-wrap td:has(>.button:only-child){justify-content:stretch}
+  .table-wrap td:has(>.button:only-child)::before{display:none}
+  .table-wrap td>.button:only-child{width:100%;justify-content:center}
+
+  .modal-backdrop{align-items:end;padding:0;place-items:end center}
+  .modal{width:100%;max-height:92dvh;border-radius:26px 26px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom));animation:sheetUp .35s var(--ease-out) both;overscroll-behavior:contain}
+  .modal::before{top:8px;right:calc(50% - 26px);left:calc(50% - 26px);height:5px;border-radius:5px;background:var(--line)}
+  .modal-head{margin:8px 0 16px}
+  .modal-head h2{font-size:19px}
+  .modal .form-grid{grid-template-columns:1fr}
+  .modal .actions,.modal .modal-actions{flex-direction:column-reverse;align-items:stretch}
+  .modal .actions .button,.modal .modal-actions .button{width:100%;justify-content:center}
+  .ctl-confirm .modal{border-radius:26px 26px 0 0}
+}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:380px){
+  .main-area{padding-inline:12px}
+  .ctl-filters{grid-template-columns:1fr}
+  .stat-grid,.stats-grid{grid-template-columns:1fr!important}
+}
+</style>
   </head>
   <body>
     <div id="app"><main class="loading-screen"><span class="spinner"></span><p>جارٍ تحميل النظام…</p></main></div>
@@ -1165,7 +1249,7 @@ function esc(value) {
   })[character]);
 }
 
-function rpc(method, ...args) {
+function rpcRaw(method, ...args) {
   return new Promise((resolve, reject) => {
     if (!APPS_SCRIPT_API_URL || !APPS_SCRIPT_API_URL.startsWith("https://script.google.com/macros/")) {
       reject(new Error("تعذر الاتصال بخدمة النظام."));
@@ -1454,7 +1538,7 @@ function renderShell() {
         '<div class="user-meta">' + personName(state.user.name) + '<small>' + esc(accountLabel()) + '</small></div>' +
       '</div>' +
     '</header>' +
-    '<main class="main-area" id="main-area"><div class="loading-screen"><span class="spinner"></span></div></main>' +
+    '<main class="main-area" id="main-area">' + skeletonView() + '</main>' +
     '</div>';
 }
 
@@ -1476,7 +1560,7 @@ function renderRoute() {
 }
 
 async function renderDashboard(main) {
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = dashboardFrame();
   try {
     const cachedDashboard = state.dashboardCache;
     const dashboardFresh = cachedDashboard && Date.now() - cachedDashboard.savedAt < 20000;
@@ -1574,7 +1658,7 @@ async function renderDashboard(main) {
 }
 
 async function renderRequests(main) {
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   try {
     const cacheKey = JSON.stringify(state.filters);
     const cached = state.requestListCache[cacheKey];
@@ -1624,7 +1708,7 @@ async function renderRequests(main) {
 }
 
 async function renderRequestDetails(main, requestId) {
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   try {
     const request = await rpc("apiGetRequest", state.token, requestId);
     state.currentRequest = request;
@@ -1716,7 +1800,7 @@ async function renderNewRequest(main, path) {
     main.innerHTML = '<div class="page">' + pageHead(title, "") + emptyState("لا تملك صلاحية إنشاء هذا الطلب", "تتحقق الخدمة من الحساب والموظف قبل حفظ أي طلب.") + "</div>";
     return;
   }
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   let requestEmployees = [];
   if (canSetEmployee) {
     try {
@@ -1804,7 +1888,7 @@ async function renderEmployees(main) {
     main.innerHTML = '<div class="page">' + pageHead("دليل الموظفين", "") + emptyState("هذه الصفحة مخصصة لفريق الموارد البشرية", "لا يملك حسابك صلاحية عرض دليل الموظفين.") + "</div>";
     return;
   }
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   try {
     const search = state.employeeSearch || "";
     const cachedEmployees = state.employeeListCache[search];
@@ -1899,7 +1983,7 @@ async function renderSettings(main) {
     main.innerHTML = '<div class="page">' + pageHead("الإعدادات والهيكل", "") + emptyState("هذه الصفحة مخصصة لفريق الموارد البشرية", "لا يملك حسابك صلاحية إدارة الإعدادات.") + "</div>";
     return;
   }
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   try {
     const values = await Promise.all([
       rpc("apiGetConfiguration", state.token),
@@ -1962,7 +2046,7 @@ async function renderAudit(main) {
     main.innerHTML = '<div class="page">' + pageHead("سجل التدقيق", "") + emptyState("لا تملك صلاحية عرض سجل التدقيق", "السجل متاح لفريق الموارد البشرية ومسؤول النظام.") + "</div>";
     return;
   }
-  main.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  main.innerHTML = skeletonView();
   try {
     const search = state.auditSearch || "";
     const events = await rpc("apiListAuditLog", state.token, { search, limit: 500 });
@@ -1984,6 +2068,7 @@ async function authenticate(employeeCode, password) {
   state.user = result.user;
   sessionStorage.setItem(SESSION_KEY, state.token);
   go(isHr() ? "/control" : "/dashboard");
+  startPrefetch();
 }
 
 function toBase64(file) {
@@ -2345,6 +2430,209 @@ window.addEventListener("resize", fitScreen);
 
 window.addEventListener("hashchange", renderRoute);
 
+const SWR_READS = new Set([
+  "apiGetDashboard", "apiListRequests", "apiGetRequest", "apiListAuditLog", "apiListEmployees", "apiGetEmployeeFinancialProfile",
+  "apiDashOverview", "apiDashListEmployees", "apiDashListLoans", "apiDashStructure", "apiDashLookups",
+]);
+const NO_CLEAR = new Set([
+  "apiGetAppStatus", "apiGetSession", "apiGetLoanEligibility", "apiGetConfiguration", "apiListDepartmentRecords",
+  "apiDownloadAttachment", "apiDashRawGrid", "apiDashExport", "apiDashImportPreview", "apiDashBulkEmployeesPreview",
+]);
+const swr = new Map();
+let swrGen = 0;
+let busyCount = 0;
+
+function swrClear() { swr.clear(); swrGen += 1; }
+
+function busyChange(delta) {
+  busyCount = Math.max(0, busyCount + delta);
+  document.body.classList.toggle("is-busy", busyCount > 0);
+}
+
+function grabButton() {
+  const button = state.lastButton;
+  if (!button || Date.now() - state.lastButtonAt > 900 || !document.contains(button)) return null;
+  state.lastButton = null;
+  return button;
+}
+
+function trackBusy(button) {
+  busyChange(1);
+  if (button) {
+    button.dataset.busy = String(Number(button.dataset.busy || 0) + 1);
+    button.classList.add("btn-loading");
+  }
+  return () => {
+    busyChange(-1);
+    if (button) {
+      const left = Number(button.dataset.busy || 1) - 1;
+      button.dataset.busy = String(left);
+      if (left <= 0) button.classList.remove("btn-loading");
+    }
+  };
+}
+
+function softRerender(route) {
+  if (!state.user || location.hash !== route) return;
+  if (document.querySelector(".modal-backdrop")) return;
+  const active = document.activeElement;
+  if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+  if (state.ctl && ((state.ctl.sel && state.ctl.sel.size) || (state.ctl.empSel && state.ctl.empSel.size))) return;
+  invalidateFinancialViewCache();
+  const y = window.scrollY;
+  renderRoute();
+  requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+}
+
+function swrFetch(key, method, args, entry) {
+  const gen = swrGen;
+  entry.pending = rpcRaw(method, ...args).then((data) => {
+    if (gen === swrGen) { entry.data = data; entry.at = Date.now(); }
+    return data;
+  }).finally(() => { entry.pending = null; });
+  swr.set(key, entry);
+  return entry.pending;
+}
+
+function swrRefresh(key, method, args, entry) {
+  const route = location.hash;
+  const before = JSON.stringify(entry.data);
+  const gen = swrGen;
+  entry.pending = rpcRaw(method, ...args).then((data) => {
+    if (gen !== swrGen || swr.get(key) !== entry) return;
+    entry.at = Date.now();
+    if (JSON.stringify(data) !== before) { entry.data = data; softRerender(route); }
+  }).catch(() => {}).finally(() => { entry.pending = null; });
+}
+
+function swrGet(method, args) {
+  const key = method + "|" + JSON.stringify(args.slice(1));
+  const entry = swr.get(key);
+  const age = entry && entry.at ? Date.now() - entry.at : Infinity;
+  if (entry && entry.data !== undefined && age < 600000) {
+    if (age > 3000 && !entry.pending) swrRefresh(key, method, args, entry);
+    return Promise.resolve(entry.data);
+  }
+  if (entry && entry.pending) return entry.pending;
+  return swrFetch(key, method, args, entry || {});
+}
+
+function rpc(method, ...args) {
+  const done = trackBusy(grabButton());
+  let promise;
+  if (SWR_READS.has(method)) promise = swrGet(method, args);
+  else {
+    promise = rpcRaw(method, ...args);
+    if (!NO_CLEAR.has(method)) promise = promise.then((value) => { swrClear(); return value; });
+  }
+  return promise.finally(done);
+}
+
+function prefetchCalls(path) {
+  const token = state.token;
+  if (!token) return [];
+  if (path === "/dashboard") return [["apiGetDashboard", token]];
+  if (path === "/requests") return [["apiListRequests", token, state.filters]];
+  if (path === "/employees") return [["apiListEmployees", token, state.employeeSearch || ""]];
+  if (path === "/audit") return [["apiListAuditLog", token, { search: state.auditSearch || "", limit: 500 }]];
+  if (path === "/control") return [
+    ["apiDashOverview", token], ["apiDashListLoans", token, state.ctl.loan],
+    ["apiDashListEmployees", token, state.ctl.empSearch], ["apiDashLookups", token], ["apiDashStructure", token],
+  ];
+  if (path.indexOf("/requests/") === 0) {
+    try { return [["apiGetRequest", token, decodeURIComponent(path.slice(10))]]; } catch (_) { return []; }
+  }
+  return [];
+}
+
+function prefetchRoute(path) {
+  prefetchCalls(path).forEach((call) => { swrGet(call[0], call.slice(1)).catch(() => {}); });
+}
+
+let prefetchRun = 0;
+function startPrefetch() {
+  const run = (prefetchRun += 1);
+  const token = state.token;
+  window.setTimeout(async () => {
+    const paths = ["/dashboard", "/requests"];
+    if (isHr() || isManager() || hasRole("OBSERVER")) paths.push("/employees");
+    if (isHr()) paths.push("/audit", "/control");
+    for (const path of paths) {
+      for (const call of prefetchCalls(path)) {
+        if (run !== prefetchRun || state.token !== token) return;
+        if (document.hidden) await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        try { await swrGet(call[0], call.slice(1)); } catch (_) {}
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
+    }
+    if (isHr() && run === prefetchRun) { try { ctlLoadExcel(); } catch (_) {} }
+  }, 1200);
+}
+
+function skeletonView(nested) {
+  const card = '<div class="sk sk-card"></div>';
+  const rows = [1, 2, 3, 4, 5].map(() => '<div class="sk sk-row"></div>').join("");
+  return (nested ? '<div class="sk-wrap">' : '<div class="page sk-wrap">') +
+    (nested ? "" : '<div class="sk sk-title"></div>') +
+    '<div class="sk-cards">' + card + card + card + card + "</div>" +
+    '<div class="sk-panel">' + rows + "</div></div>";
+}
+
+function dashboardFrame() {
+  const name = personName(state.user.name);
+  const mark = esc((state.user.name || "م").trim().slice(0, 1));
+  return '<div class="page"><section class="panel account-banner"><div><span class="eyebrow">مساحة العمل · ' + esc(accountLabel()) +
+    "</span><h2>أهلًا، " + name + '</h2><div class="sk sk-line"></div></div><div class="account-mark"><span>' + mark +
+    "</span><small>" + esc(state.user.department || "حساب داخلي") + "</small></div></section>" +
+    '<div class="sk-cards">' + [1, 2, 3, 4].map(() => '<div class="sk sk-card"></div>').join("") + "</div>" +
+    '<div class="sk-panel">' + [1, 2, 3, 4, 5].map(() => '<div class="sk sk-row"></div>').join("") + "</div></div>";
+}
+
+function markTruncated() {
+  document.querySelectorAll("td, td .row-sub, td .row-title, td .table-link").forEach((el) => {
+    if (el.scrollWidth > el.clientWidth + 1 && !el.title) el.title = el.textContent.trim();
+  });
+}
+
+(function setupPerformanceUi() {
+  const bar = document.createElement("div");
+  bar.id = "busy-bar";
+  const chip = document.createElement("div");
+  chip.id = "busy-chip";
+  chip.innerHTML = '<span class="busy-dot"></span><span>جارٍ المعالجة…</span>';
+  document.body.append(bar, chip);
+  const remember = (event) => {
+    const button = event.target.closest && event.target.closest("button, a.button");
+    if (button) { state.lastButton = button; state.lastButtonAt = Date.now(); }
+  };
+  document.addEventListener("click", remember, true);
+  document.addEventListener("submit", (event) => {
+    const button = event.submitter || event.target.querySelector("button[type=submit], button:not([type])");
+    if (button) { state.lastButton = button; state.lastButtonAt = Date.now(); }
+  }, true);
+  document.addEventListener("pointerover", (event) => {
+    const link = event.target.closest && event.target.closest("[data-go]");
+    if (link) prefetchRoute(link.dataset.go);
+  }, { passive: true });
+  let scheduled = false;
+  new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => { scheduled = false; markTruncated(); labelTables(); });
+  }).observe(document.getElementById("app"), { childList: true, subtree: true });
+})();
+
+function labelTables() {
+  document.querySelectorAll(".table-wrap table:not([data-labeled])").forEach((table) => {
+    const heads = Array.from(table.querySelectorAll("thead th")).map((th) => (th.textContent || "").trim());
+    if (!heads.length) return;
+    table.querySelectorAll("tbody tr").forEach((tr) => {
+      Array.from(tr.children).forEach((td, i) => { td.setAttribute("data-label", heads[i] || ""); });
+    });
+    table.setAttribute("data-labeled", "1");
+  });
+}
+
 async function boot() {
   const statusPromise = rpc("apiGetAppStatus");
   const sessionPromise = state.token ? rpc("apiGetSession", state.token) : null;
@@ -2360,6 +2648,7 @@ async function boot() {
     try {
       state.user = await sessionPromise;
       renderRoute();
+      startPrefetch();
       return;
     } catch (_) {
       state.token = ""; sessionStorage.removeItem(SESSION_KEY);
@@ -2419,7 +2708,7 @@ function ctlTabs() {
 async function renderControl(main) {
   if (!isHr()) { go("/dashboard"); return; }
   main.innerHTML = '<div class="page">' + pageHead("لوحة التحكم", "") + ctlTabs() +
-    '<div id="ctl-body"><div class="loading-screen"><span class="spinner"></span></div></div></div>';
+    '<div id="ctl-body"></div></div>';
   ctlRenderTab();
 }
 
@@ -2427,7 +2716,7 @@ async function ctlRenderTab() {
   const body = document.getElementById("ctl-body");
   if (!body) return;
   document.querySelectorAll(".ctl-tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === state.ctl.tab));
-  body.innerHTML = '<div class="loading-screen"><span class="spinner"></span></div>';
+  body.innerHTML = skeletonView(true);
   try {
     if (state.ctl.tab === "overview") await ctlOverview(body);
     else if (state.ctl.tab === "employees") await ctlEmployees(body);
